@@ -10,10 +10,10 @@ use hyper::server::{Request, Response};
 use tree::Tree;
 pub use tree::Params;
 use ctx::Context;
-use web::{Respond, Middleware};
+use web::{Next, WebResult, Middleware, FnMiddleware};
 
 pub struct Router {
-    routes: HashMap<Method, Tree<Middleware>>,
+    routes: HashMap<Method, Tree<Box<Middleware>>>,
     // TODO:
     // - HEAD can execute GET
     // - Trailing slash handling
@@ -22,7 +22,7 @@ pub struct Router {
 macro_rules! method {
     ( $name:ident, $method:expr ) => {
         pub fn $name<F>(&mut self, path: &str, handler: F)
-            where F: Fn(Request, Response, Context) -> Respond + Send + 'static
+            where F: 'static + Fn(Request, Response, Context) -> WebResult + Send + Sync
         {
             self.route($method, path, handler);
         }
@@ -40,14 +40,14 @@ impl Router {
     }
 
     pub fn route<F>(&mut self, method: Method, path: &str, handler: F)
-        where F: Fn(Request, Response, Context) -> Respond + Send + 'static
+        where F: 'static + Fn(Request, Response, Context) -> WebResult + Send + Sync,
     {
         if !self.routes.contains_key(&method) {
             let tree = Tree::new();
             self.routes.insert(method.clone(), tree);
         }
         let mut tree = self.routes.get_mut(&method).unwrap();
-        tree.add_path(path, handler.into());
+        tree.add_path(path, Box::new(FnMiddleware::new(handler)));
     }
 
     method!(options, Method::Options);
@@ -58,21 +58,21 @@ impl Router {
     method!(head, Method::Head);
     method!(patch, Method::Patch);
 
-    pub fn resolve(&self, method: &Method, path: &str) -> Option<(&Middleware, Params)> {
+    pub fn resolve(&self, method: &Method, path: &str) -> Option<(&Box<Middleware>, Params)> {
         let path = path.to_lowercase();
         self.routes.get(method).and_then(|tree| {
             tree.find(path.as_str())
         })
     }
+}
 
-    pub fn middleware(self) -> Middleware {
-        Box::new(move |req, res, ctx| {
-            if let Some((handler, params)) = self.resolve(req.method(), req.uri().path()) {
-                let ctx = ctx::with_value(ctx, params);
-                handler(req, res, ctx)
-            } else {
-                Respond::Next(req, res, ctx)
-            }
-        })
+impl Middleware for Router {
+    fn handle(&self, req: Request, res: Response, ctx: Context) -> WebResult {
+        if let Some((mw, params)) = self.resolve(req.method(), req.uri().path()) {
+            let ctx = ctx::with_value(ctx, params);
+            mw.handle(req, res, ctx)
+        } else {
+            Ok(Next(req, res, ctx))
+        }
     }
 }

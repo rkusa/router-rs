@@ -4,6 +4,6 @@ version = "0.1.0"
 authors = ["Markus Ast <m@rkusa.st>"]
 
 [dependencies]
-ctx = "0.2"
+ctx = { path = "../ctx" }
 hyper = "0.11"
-web = { git = "https://github.com/rkusa/web-rs.git" }
+web = { path = "../web-sync" }

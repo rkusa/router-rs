@@ -46,7 +46,7 @@ impl Router {
             let tree = Tree::new();
             self.routes.insert(method.clone(), tree);
         }
-        let mut tree = self.routes.get_mut(&method).unwrap();
+        let tree = self.routes.get_mut(&method).unwrap();
         tree.add_path(path, Box::new(FnMiddleware::new(handler)));
     }
 

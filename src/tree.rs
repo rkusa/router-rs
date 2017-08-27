@@ -129,7 +129,7 @@ impl<T> Node<T> {
         };
 
         if self.childs.contains_key(&first_char) {
-            let mut node = self.childs.get_mut(&first_char).unwrap();
+            let node = self.childs.get_mut(&first_char).unwrap();
             node.add_path(path, value)
         } else {
             self.childs.insert(first_char, Node::new(path, value));

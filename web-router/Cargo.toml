@@ -1,0 +1,14 @@
+[package]
+name = "web-router"
+version = "0.1.0"
+authors = ["Markus Ast <m@rkusa.st>"]
+
+[dependencies]
+ctx = { git = "https://github.com/rkusa/ctx.git" }
+hyper = "0.11"
+# web = { git = "https://github.com/rkusa/web-rs.git" }
+web = { path = "../../web" }
+router = { path = "../router" }
+
+[dev-dependencies]
+futures = "0.1"

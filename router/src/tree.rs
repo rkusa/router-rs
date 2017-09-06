@@ -110,13 +110,14 @@ impl<T> Node<T> {
             };
 
             self.path = left;
-            self.childs
-                .insert(right_first_char, node);
+            self.childs.insert(right_first_char, node);
 
             // add new node
             let (_, right) = path.split_at(split_at);
-            self.childs
-                .insert(right.chars().next().unwrap(), Node::new(right, value));
+            self.childs.insert(
+                right.chars().next().unwrap(),
+                Node::new(right, value),
+            );
             return;
         } else {
             let (_, right) = path.split_at(split_at);
@@ -210,27 +211,33 @@ mod tests {
         tree.add_path("b", 2);
 
         let mut childs = HashMap::new();
-        childs.insert('a',
-                      Node {
-                          path: "a".to_string(),
-                          value: Some(1),
-                          childs: HashMap::new(),
-                          wildcard: None,
-                      });
-        childs.insert('b',
-                      Node {
-                          path: "b".to_string(),
-                          value: Some(2),
-                          childs: HashMap::new(),
-                          wildcard: None,
-                      });
-        assert_eq!(tree.0,
-                   Some(Node {
-                            path: "".to_string(),
-                            value: None,
-                            childs: childs,
-                            wildcard: None,
-                        }));
+        childs.insert(
+            'a',
+            Node {
+                path: "a".to_string(),
+                value: Some(1),
+                childs: HashMap::new(),
+                wildcard: None,
+            },
+        );
+        childs.insert(
+            'b',
+            Node {
+                path: "b".to_string(),
+                value: Some(2),
+                childs: HashMap::new(),
+                wildcard: None,
+            },
+        );
+        assert_eq!(
+            tree.0,
+            Some(Node {
+                path: "".to_string(),
+                value: None,
+                childs: childs,
+                wildcard: None,
+            })
+        );
     }
 
     #[test]
@@ -238,76 +245,94 @@ mod tests {
         let mut tree = Tree::new();
 
         tree.add_path("/foobar", 1);
-        assert_eq!(tree.0,
-                   Some(Node {
-                            path: "/foobar".to_string(),
-                            value: Some(1),
-                            childs: HashMap::new(),
-                            wildcard: None,
-                        }));
+        assert_eq!(
+            tree.0,
+            Some(Node {
+                path: "/foobar".to_string(),
+                value: Some(1),
+                childs: HashMap::new(),
+                wildcard: None,
+            })
+        );
 
         tree.add_path("/foocar", 2);
         let mut childs = HashMap::new();
-        childs.insert('b',
-                      Node {
-                          path: "bar".to_string(),
-                          value: Some(1),
-                          childs: HashMap::new(),
-                          wildcard: None,
-                      });
-        childs.insert('c',
-                      Node {
-                          path: "car".to_string(),
-                          value: Some(2),
-                          childs: HashMap::new(),
-                          wildcard: None,
-                      });
-        assert_eq!(tree.0,
-                   Some(Node {
-                            path: "/foo".to_string(),
-                            value: None,
-                            childs: childs,
-                            wildcard: None,
-                        }));
+        childs.insert(
+            'b',
+            Node {
+                path: "bar".to_string(),
+                value: Some(1),
+                childs: HashMap::new(),
+                wildcard: None,
+            },
+        );
+        childs.insert(
+            'c',
+            Node {
+                path: "car".to_string(),
+                value: Some(2),
+                childs: HashMap::new(),
+                wildcard: None,
+            },
+        );
+        assert_eq!(
+            tree.0,
+            Some(Node {
+                path: "/foo".to_string(),
+                value: None,
+                childs: childs,
+                wildcard: None,
+            })
+        );
 
         tree.add_path("/otherwise", 3);
         let mut subchilds = HashMap::new();
-        subchilds.insert('b',
-                      Node {
-                          path: "bar".to_string(),
-                          value: Some(1),
-                          childs: HashMap::new(),
-                          wildcard: None,
-                      });
-        subchilds.insert('c',
-                      Node {
-                          path: "car".to_string(),
-                          value: Some(2),
-                          childs: HashMap::new(),
-                          wildcard: None,
-                      });
+        subchilds.insert(
+            'b',
+            Node {
+                path: "bar".to_string(),
+                value: Some(1),
+                childs: HashMap::new(),
+                wildcard: None,
+            },
+        );
+        subchilds.insert(
+            'c',
+            Node {
+                path: "car".to_string(),
+                value: Some(2),
+                childs: HashMap::new(),
+                wildcard: None,
+            },
+        );
         let mut childs = HashMap::new();
-        childs.insert('f',
-                      Node {
-                          path: "foo".to_string(),
-                          value: None,
-                          childs: subchilds,
-                          wildcard: None,
-                      });
-        childs.insert('o',
-                      Node {
-                          path: "otherwise".to_string(),
-                          value: Some(3),
-                          childs: HashMap::new(),
-                          wildcard: None,
-                      });
-        assert_eq!(tree.0,
-                   Some(Node {
-                            path: "/".to_string(),
-                            value: None,
-                            childs: childs,
-                            wildcard: None,
-                        }));
+        childs.insert(
+            'f',
+            Node {
+                path: "foo".to_string(),
+                value: None,
+                childs: subchilds,
+                wildcard: None,
+            },
+        );
+        childs.insert(
+            'o',
+            Node {
+                path: "otherwise".to_string(),
+                value: Some(3),
+                childs: HashMap::new(),
+                wildcard: None,
+            },
+        );
+        assert_eq!(
+            tree.0,
+            Some(Node {
+                path: "/".to_string(),
+                value: None,
+                childs: childs,
+                wildcard: None,
+            })
+        );
     }
 
     #[test]
@@ -315,51 +340,59 @@ mod tests {
         let mut tree = Tree::new();
 
         tree.add_path("/foo", 1);
-        assert_eq!(tree.0,
-                   Some(Node {
-                            path: "/foo".to_string(),
-                            value: Some(1),
-                            childs: HashMap::new(),
-                            wildcard: None,
-                        }));
+        assert_eq!(
+            tree.0,
+            Some(Node {
+                path: "/foo".to_string(),
+                value: Some(1),
+                childs: HashMap::new(),
+                wildcard: None,
+            })
+        );
 
         tree.add_path("/foobar", 2);
         let mut childs = HashMap::new();
-        childs.insert('b',
-                      Node {
-                          path: "bar".to_string(),
-                          value: Some(2),
-                          childs: HashMap::new(),
-                          wildcard: None,
-                      });
-        assert_eq!(tree.0,
-                   Some(Node {
-                            path: "/foo".to_string(),
-                            value: Some(1),
-                            childs: childs,
-                            wildcard: None,
-                        }));
+        childs.insert(
+            'b',
+            Node {
+                path: "bar".to_string(),
+                value: Some(2),
+                childs: HashMap::new(),
+                wildcard: None,
+            },
+        );
+        assert_eq!(
+            tree.0,
+            Some(Node {
+                path: "/foo".to_string(),
+                value: Some(1),
+                childs: childs,
+                wildcard: None,
+            })
+        );
     }
 
     #[test]
     fn wildcard() {
         let node = Node::new("/foo/:bar/more", Some(1));
 
-        assert_eq!(node,
-                   Node {
-                       path: "/foo/".to_string(),
-                       value: None,
-                       childs: HashMap::new(),
-                       wildcard: Some(Param {
-                                          name: "bar".to_string(),
-                                          node: Box::new(Node {
-                                                             path: "/more".to_string(),
-                                                             value: Some(1),
-                                                             childs: HashMap::new(),
-                                                             wildcard: None,
-                                                         }),
-                                      }),
-                   });
+        assert_eq!(
+            node,
+            Node {
+                path: "/foo/".to_string(),
+                value: None,
+                childs: HashMap::new(),
+                wildcard: Some(Param {
+                    name: "bar".to_string(),
+                    node: Box::new(Node {
+                        path: "/more".to_string(),
+                        value: Some(1),
+                        childs: HashMap::new(),
+                        wildcard: None,
+                    }),
+                }),
+            }
+        );
     }
 
     #[test]

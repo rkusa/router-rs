@@ -1,32 +1,69 @@
 extern crate ctx;
+extern crate futures;
 extern crate hyper;
-extern crate web;
 extern crate router;
+extern crate web;
 
-use hyper::{Request, Response, Method};
-use web::{Next, Middleware, WebFuture, Context};
+use hyper::{Method, Request, Response};
+use web::{Context, HttpError, IntoResponse, Middleware, Next, WebFuture};
+use futures::{Future, IntoFuture};
 
-pub struct Router(router::Router<Box<Middleware>>);
+pub type RouterFuture<E> = Box<Future<Item = Response, Error = E>>;
+
+pub trait Handler<E>: Send + Sync {
+    fn handle(&self, Request, Response, Context) -> RouterFuture<E>;
+}
+
+impl<E, F, B> Handler<E> for F
+where
+    E: 'static,
+    F: Send + Sync + Fn(Request, Response, Context) -> B,
+    B: IntoRouterFuture<E> + 'static,
+{
+    fn handle(&self, req: Request, res: Response, ctx: Context) -> RouterFuture<E> {
+        Box::new((self)(req, res, ctx).into_future())
+    }
+}
+
+pub trait IntoRouterFuture<E> {
+    fn into_future(self) -> RouterFuture<E>;
+}
+
+impl<E, F, I> IntoRouterFuture<E> for F
+where
+    F: IntoFuture<Item = I, Error = E>,
+    I: IntoResponse,
+    <F as futures::IntoFuture>::Future: 'static,
+{
+    fn into_future(self) -> RouterFuture<E> {
+        Box::new(self.into_future().map(|i| i.into_response()))
+    }
+}
+
+pub struct Router<E: Into<HttpError>>(router::Router<Box<Handler<E>>>);
 
 macro_rules! method {
     ( $name:ident, $method:expr ) => {
-        pub fn $name<M>(&mut self, path: &str, handler: M)
-        where
-        M: Middleware + 'static,
+        pub fn $name<H>(&mut self, path: &str, handler: H)
+    where
+        H: Handler<E> + 'static,
         {
             self.route($method, path, handler);
         }
     };
 }
 
-impl Router {
+impl<E> Router<E>
+where
+    E: Into<HttpError>,
+{
     pub fn new() -> Self {
         Router(router::Router::new())
     }
 
-    pub fn route<M>(&mut self, method: Method, path: &str, handler: M)
+    pub fn route<H>(&mut self, method: Method, path: &str, handler: H)
     where
-        M: Middleware + 'static,
+        H: Handler<E> + 'static,
     {
         self.0.route(method, path, Box::new(handler));
     }
@@ -40,11 +77,14 @@ impl Router {
     method!(patch, Method::Patch);
 }
 
-impl Middleware for Router {
+impl<E> Middleware for Router<E>
+where
+    E: Into<HttpError> + 'static,
+{
     fn handle(&self, req: Request, res: Response, ctx: Context, next: Next) -> WebFuture {
         if let Some((mw, params)) = self.0.resolve(req.method(), req.uri().path()) {
             let ctx = ctx::with_value(ctx, params);
-            mw.handle(req, res, ctx, next)
+            Box::new(mw.handle(req, res, ctx).map_err(|err| err.into()))
         } else {
             next(req, res, ctx)
         }
@@ -61,12 +101,12 @@ mod tests {
     use Router;
     use self::futures::{Future, Stream};
     use std::str::FromStr;
-    use web::{App, Next, done};
+    use web::{done, App};
 
     #[test]
     fn middleware() {
         let mut router = Router::new();
-        router.get("/foo", |_, mut res: Response, _, _| {
+        router.get("/foo", |_, mut res: Response, _| {
             res.set_body("Hello World!");
             done(res)
         });

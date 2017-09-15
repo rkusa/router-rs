@@ -3,6 +3,7 @@ use std::mem;
 
 pub type Params = HashMap<String, String>;
 
+#[derive(Debug)]
 pub struct Tree<T>(Option<Node<T>>);
 
 #[derive(Debug, PartialEq)]
@@ -58,7 +59,7 @@ impl<T> Node<T> {
                         (left.to_owned(), right.to_owned())
                     };
                     actual_path = Some(left);
-                    wildcard = Some(Param::new(right, value.take()));
+                    wildcard = Some(Param::new(&right, value.take()));
                     break;
                 }
                 _ if is_new_path_segment => is_new_path_segment = false,
@@ -80,8 +81,24 @@ impl<T> Node<T> {
         // split self
         let split_at = {
             let mut chars = self.path.chars();
+            let mut is_new_path_segment = false;
             let mut i = 0;
             for lhs in path.chars() {
+                match lhs {
+                    '/' => is_new_path_segment = true,
+                    ':' if is_new_path_segment => {
+                        let (_, right) = path.split_at(i);
+                        if let Some(ref mut param) = self.wildcard {
+                            param.add_path(right, value);
+                        } else {
+                            self.wildcard = Some(Param::new(right, value));
+                        }
+                        return;
+                    }
+                    _ if is_new_path_segment => is_new_path_segment = false,
+                    _ => {}
+                }
+
                 if let Some(rhs) = chars.next() {
                     if lhs != rhs {
                         break;
@@ -113,11 +130,15 @@ impl<T> Node<T> {
             self.childs.insert(right_first_char, node);
 
             // add new node
-            let (_, right) = path.split_at(split_at);
-            self.childs.insert(
-                right.chars().next().unwrap(),
-                Node::new(right, value),
-            );
+            if path != "" {
+                let (_, right) = path.split_at(split_at);
+                self.childs.insert(
+                    right.chars().next().unwrap(),
+                    Node::new(right, value),
+                );
+            } else {
+                self.value = value;
+            }
             return;
         } else {
             let (_, right) = path.split_at(split_at);
@@ -131,7 +152,7 @@ impl<T> Node<T> {
 
         if self.childs.contains_key(&first_char) {
             let node = self.childs.get_mut(&first_char).unwrap();
-            node.add_path(path, value)
+            node.add_path(path, value);
         } else {
             self.childs.insert(first_char, Node::new(path, value));
         }
@@ -160,16 +181,21 @@ impl<T> Node<T> {
 }
 
 impl<T> Param<T> {
-    fn new<P: Into<String>>(path: P, value: Option<T>) -> Self {
-        let path = path.into();
-        let (colon, path) = path.split_at(1);
-        assert_eq!(colon, ":");
-
-        let (name, path) = split_at_next_path_segment(path);
+    fn new(path: &str, value: Option<T>) -> Self {
+        let (name, path) = extract_param_name(path);
         Param {
-            name: name.to_owned(),
+            name: name.to_string(),
             node: Box::new(Node::new(path, value)),
         }
+    }
+
+    fn add_path(&mut self, path: &str, value: Option<T>) {
+        let (name, path) = extract_param_name(path);
+        if name != self.name {
+            // TODO: really panic?
+            panic!("cannot have different parameter names at the same position");
+        }
+        self.node.add_path(path, value);
     }
 
     fn find(&self, path: &str, mut params: Params) -> Option<(&T, Params)> {
@@ -182,6 +208,13 @@ impl<T> Param<T> {
     fn find_test(&self, path: &str) -> Option<&T> {
         self.find(path, HashMap::new()).map(|v| v.0)
     }
+}
+
+fn extract_param_name(path: &str) -> (&str, &str) {
+    let (colon, path) = path.split_at(1);
+    assert_eq!(colon, ":");
+
+    split_at_next_path_segment(path)
 }
 
 fn split_at_next_path_segment(path: &str) -> (&str, &str) {
@@ -417,8 +450,18 @@ mod tests {
         assert_eq!(tree.find_test("/foocar"), Some(&2));
         assert_eq!(tree.find_test("/foo"), None);
 
-        tree.add_path("/articles/:article/comments/:comment/author", 3);
-        assert_eq!(tree.find_test("/articles/42/comments/13/author"), Some(&3));
+        tree.add_path("/one/:id", 3);
+        tree.add_path("/one/:id/more", 4);
+        assert_eq!(tree.find_test("/one/42"), Some(&3));
+        assert_eq!(tree.find_test("/one/13/more"), Some(&4));
+
+        tree.add_path("/two/:id/more", 5);
+        tree.add_path("/two/:id", 6);
+        assert_eq!(tree.find_test("/two/13/more"), Some(&5));
+        assert_eq!(tree.find_test("/two/42"), Some(&6));
+
+        tree.add_path("/articles/:article/comments/:comment/author", 7);
+        assert_eq!(tree.find_test("/articles/42/comments/13/author"), Some(&7));
         assert_eq!(tree.find_test("/articles/42/comments/13"), None);
     }
 

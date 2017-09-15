@@ -7,6 +7,7 @@ extern crate web;
 use hyper::{Method, Request, Response};
 use web::{Context, HttpError, IntoResponse, Middleware, Next, WebFuture};
 use futures::{Future, IntoFuture};
+pub use router::Params;
 
 pub type RouterFuture<E> = Box<Future<Item = Response, Error = E>>;
 

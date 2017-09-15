@@ -112,7 +112,7 @@ mod tests {
             done(res)
         });
 
-        let mut app = App::new(|| background());
+        let mut app = App::new();
         app.add(router);
 
         let req = Request::new(Method::Get, Uri::from_str("http://localhost/foo").unwrap());

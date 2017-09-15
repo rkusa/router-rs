@@ -9,7 +9,7 @@ use web_router::{Router, RouterFuture};
 use hyper::server::Http;
 
 fn main() {
-    let mut app = App::new(|| background());
+    let mut app = App::new();
     let mut router = Router::new();
     router.get("/foobar", foobar);
     router.get("/foocar", |_, mut res: Response, _| {
@@ -25,7 +25,7 @@ fn main() {
     let app = app.build();
     let addr = ([127, 0, 0, 1], 3000).into();
     let server = Http::new()
-        .bind(&addr, move || Ok(app.clone()))
+        .bind(&addr, move || Ok(app.handle(|| background())))
         .expect("unable to listen");
     println!(
         "Listening on http://{} with 1 thread.",

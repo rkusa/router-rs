@@ -49,9 +49,9 @@ impl<T> Router<T> {
     method!(patch, Method::Patch);
 
     pub fn resolve(&self, method: &Method, path: &str) -> Option<(&T, Params)> {
-        let path = path.to_lowercase();
+        // let path = path.to_lowercase();
         self.routes.get(method).and_then(
-            |tree| tree.find(path.as_str()),
+            |tree| tree.find(path),
         )
     }
 }

@@ -99,10 +99,10 @@ mod tests {
     use ctx::background;
     use hyper::{Method, Uri};
     use hyper::{Request, Response, StatusCode};
-    use Router;
+    use {Router, Params};
     use self::futures::{Future, Stream};
     use std::str::FromStr;
-    use web::{done, App};
+    use web::{done, App, Context};
 
     #[test]
     fn middleware() {
@@ -124,5 +124,28 @@ mod tests {
             .unwrap();
         let body = String::from_utf8(res.body().concat2().wait().unwrap().to_vec()).unwrap();
         assert_eq!(body, "Hello World!");
+    }
+
+    #[test]
+    fn param_case_sensitivity() {
+        let mut router = Router::new();
+        router.get("/test/:name", |_, mut res: Response, ctx: Context| {
+            let params = ctx.value::<Params>().unwrap();
+            res.set_body(params.get("name").unwrap().clone());
+            done(res)
+        });
+
+        let mut app = App::new();
+        app.add(router);
+
+        let req = Request::new(Method::Get, Uri::from_str("http://localhost/test/FooBar").unwrap());
+        let res = app.build()
+            .execute(req, Response::default(), background(), |_, _, _| {
+                done(Response::default().with_status(StatusCode::NotFound))
+            })
+            .wait()
+            .unwrap();
+        let body = String::from_utf8(res.body().concat2().wait().unwrap().to_vec()).unwrap();
+        assert_eq!(body, "FooBar");
     }
 }

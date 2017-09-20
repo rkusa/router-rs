@@ -7,8 +7,8 @@ mod tree;
 use tree::Tree;
 pub use tree::Params;
 
-pub struct Router<T> {
-    routes: HashMap<Method, Tree<T>>,
+pub struct Router<'a, T> {
+    routes: HashMap<Method, Tree<'a, T>>,
     // TODO:
     // - HEAD can execute GET
     // - Trailing slash handling
@@ -16,14 +16,14 @@ pub struct Router<T> {
 
 macro_rules! method {
     ( $name:ident, $method:expr ) => {
-        pub fn $name(&mut self, path: &str, handler: T)
+        pub fn $name(&mut self, path: &'a str, handler: T)
         {
             self.route($method, path, handler);
         }
     };
 }
 
-impl<T> Router<T> {
+impl<'a, T> Router<'a, T> {
     pub fn new() -> Self {
         let mut routes = HashMap::with_capacity(2);
         routes.insert(Method::Get, Tree::new());
@@ -31,7 +31,7 @@ impl<T> Router<T> {
         Router { routes: routes }
     }
 
-    pub fn route(&mut self, method: Method, path: &str, handler: T) {
+    pub fn route(&mut self, method: Method, path: &'a str, handler: T) {
         if !self.routes.contains_key(&method) {
             let tree = Tree::new();
             self.routes.insert(method.clone(), tree);

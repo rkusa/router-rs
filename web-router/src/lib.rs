@@ -41,11 +41,11 @@ where
     }
 }
 
-pub struct Router<E: Into<HttpError>>(router::Router<Box<Handler<E>>>);
+pub struct Router<'a, E: Into<HttpError>>(router::Router<'a, Box<Handler<E>>>);
 
 macro_rules! method {
     ( $name:ident, $method:expr ) => {
-        pub fn $name<H>(&mut self, path: &str, handler: H)
+        pub fn $name<H>(&mut self, path: &'a str, handler: H)
     where
         H: Handler<E> + 'static,
         {
@@ -54,7 +54,7 @@ macro_rules! method {
     };
 }
 
-impl<E> Router<E>
+impl<'a, E> Router<'a, E>
 where
     E: Into<HttpError>,
 {
@@ -62,7 +62,7 @@ where
         Router(router::Router::new())
     }
 
-    pub fn route<H>(&mut self, method: Method, path: &str, handler: H)
+    pub fn route<H>(&mut self, method: Method, path: &'a str, handler: H)
     where
         H: Handler<E> + 'static,
     {
@@ -78,7 +78,7 @@ where
     method!(patch, Method::Patch);
 }
 
-impl<E> Middleware for Router<E>
+impl<'a, E> Middleware for Router<'a, E>
 where
     E: Into<HttpError> + 'static,
 {

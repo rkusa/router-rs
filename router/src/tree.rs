@@ -4,28 +4,28 @@ use std::mem;
 pub type Params = HashMap<String, String>;
 
 #[derive(Debug)]
-pub struct Tree<T>(Option<Node<T>>);
+pub struct Tree<'a, T>(Option<Node<'a, T>>);
 
 #[derive(Debug, PartialEq)]
-pub struct Node<T> {
-    path: String,
+pub struct Node<'a, T> {
+    path: &'a str,
     value: Option<T>,
-    childs: HashMap<char, Node<T>>,
-    wildcard: Option<Param<T>>,
+    childs: HashMap<char, Node<'a, T>>,
+    wildcard: Option<Param<'a, T>>,
 }
 
 #[derive(Debug, PartialEq)]
-pub struct Param<T> {
-    name: String,
-    node: Box<Node<T>>,
+pub struct Param<'a, T> {
+    name: &'a str,
+    node: Box<Node<'a, T>>,
 }
 
-impl<T> Tree<T> {
+impl<'a, T> Tree<'a, T> {
     pub fn new() -> Self {
         return Tree(None);
     }
 
-    pub fn add_path(&mut self, path: &str, value: T) {
+    pub fn add_path(&mut self, path: &'a str, value: T) {
         match self.0 {
             Some(ref mut node) => node.add_path(path, Some(value)),
             None => self.0 = Some(Node::new(path, Some(value))),
@@ -43,9 +43,8 @@ impl<T> Tree<T> {
     }
 }
 
-impl<T> Node<T> {
-    fn new<P: Into<String>>(path: P, value: Option<T>) -> Self {
-        let path = path.into();
+impl<'a, T> Node<'a, T> {
+    fn new(path: &'a str, value: Option<T>) -> Self {
         let mut value = value;
         let mut actual_path = None;
         let mut wildcard = None;
@@ -54,10 +53,7 @@ impl<T> Node<T> {
             match ch {
                 '/' => is_new_path_segment = true,
                 ':' if is_new_path_segment => {
-                    let (left, right) = {
-                        let (left, right) = path.split_at(i);
-                        (left.to_owned(), right.to_owned())
-                    };
+                    let (left, right) = path.split_at(i);
                     actual_path = Some(left);
                     wildcard = Some(Param::new(&right, value.take()));
                     break;
@@ -75,7 +71,7 @@ impl<T> Node<T> {
         }
     }
 
-    fn add_path(&mut self, path: &str, value: Option<T>) {
+    fn add_path(&mut self, path: &'a str, value: Option<T>) {
         let mut path = path;
 
         // split self
@@ -113,11 +109,7 @@ impl<T> Node<T> {
 
         if split_at < self.path.len() {
             // branch self
-            let (left, right) = {
-                let (left, right) = self.path.split_at(split_at);
-                (left.to_owned(), right.to_owned())
-            };
-
+            let (left, right) = self.path.split_at(split_at);
             let right_first_char = right.chars().next().unwrap();
             let node = Node {
                 path: right,
@@ -159,7 +151,7 @@ impl<T> Node<T> {
     }
 
     fn find(&self, path: &str, params: Params) -> Option<(&T, Params)> {
-        if !path.starts_with(self.path.as_str()) {
+        if !path.starts_with(self.path) {
             return None;
         }
 
@@ -180,16 +172,16 @@ impl<T> Node<T> {
     }
 }
 
-impl<T> Param<T> {
-    fn new(path: &str, value: Option<T>) -> Self {
+impl<'a, T> Param<'a, T> {
+    fn new(path: &'a str, value: Option<T>) -> Self {
         let (name, path) = extract_param_name(path);
         Param {
-            name: name.to_string(),
+            name: name,
             node: Box::new(Node::new(path, value)),
         }
     }
 
-    fn add_path(&mut self, path: &str, value: Option<T>) {
+    fn add_path(&mut self, path: &'a str, value: Option<T>) {
         let (name, path) = extract_param_name(path);
         if name != self.name {
             // TODO: really panic?
@@ -200,7 +192,7 @@ impl<T> Param<T> {
 
     fn find(&self, path: &str, mut params: Params) -> Option<(&T, Params)> {
         let (value, path) = split_at_next_path_segment(path);
-        params.insert(self.name.clone(), value.to_string());
+        params.insert(self.name.to_string(), value.to_string());
         self.node.find(path, params)
     }
 
@@ -247,7 +239,7 @@ mod tests {
         childs.insert(
             'a',
             Node {
-                path: "a".to_string(),
+                path: "a",
                 value: Some(1),
                 childs: HashMap::new(),
                 wildcard: None,
@@ -256,7 +248,7 @@ mod tests {
         childs.insert(
             'b',
             Node {
-                path: "b".to_string(),
+                path: "b",
                 value: Some(2),
                 childs: HashMap::new(),
                 wildcard: None,
@@ -265,7 +257,7 @@ mod tests {
         assert_eq!(
             tree.0,
             Some(Node {
-                path: "".to_string(),
+                path: "",
                 value: None,
                 childs: childs,
                 wildcard: None,
@@ -281,7 +273,7 @@ mod tests {
         assert_eq!(
             tree.0,
             Some(Node {
-                path: "/foobar".to_string(),
+                path: "/foobar",
                 value: Some(1),
                 childs: HashMap::new(),
                 wildcard: None,
@@ -293,7 +285,7 @@ mod tests {
         childs.insert(
             'b',
             Node {
-                path: "bar".to_string(),
+                path: "bar",
                 value: Some(1),
                 childs: HashMap::new(),
                 wildcard: None,
@@ -302,7 +294,7 @@ mod tests {
         childs.insert(
             'c',
             Node {
-                path: "car".to_string(),
+                path: "car",
                 value: Some(2),
                 childs: HashMap::new(),
                 wildcard: None,
@@ -311,7 +303,7 @@ mod tests {
         assert_eq!(
             tree.0,
             Some(Node {
-                path: "/foo".to_string(),
+                path: "/foo",
                 value: None,
                 childs: childs,
                 wildcard: None,
@@ -323,7 +315,7 @@ mod tests {
         subchilds.insert(
             'b',
             Node {
-                path: "bar".to_string(),
+                path: "bar",
                 value: Some(1),
                 childs: HashMap::new(),
                 wildcard: None,
@@ -332,7 +324,7 @@ mod tests {
         subchilds.insert(
             'c',
             Node {
-                path: "car".to_string(),
+                path: "car",
                 value: Some(2),
                 childs: HashMap::new(),
                 wildcard: None,
@@ -342,7 +334,7 @@ mod tests {
         childs.insert(
             'f',
             Node {
-                path: "foo".to_string(),
+                path: "foo",
                 value: None,
                 childs: subchilds,
                 wildcard: None,
@@ -351,7 +343,7 @@ mod tests {
         childs.insert(
             'o',
             Node {
-                path: "otherwise".to_string(),
+                path: "otherwise",
                 value: Some(3),
                 childs: HashMap::new(),
                 wildcard: None,
@@ -360,7 +352,7 @@ mod tests {
         assert_eq!(
             tree.0,
             Some(Node {
-                path: "/".to_string(),
+                path: "/",
                 value: None,
                 childs: childs,
                 wildcard: None,
@@ -376,7 +368,7 @@ mod tests {
         assert_eq!(
             tree.0,
             Some(Node {
-                path: "/foo".to_string(),
+                path: "/foo",
                 value: Some(1),
                 childs: HashMap::new(),
                 wildcard: None,
@@ -388,7 +380,7 @@ mod tests {
         childs.insert(
             'b',
             Node {
-                path: "bar".to_string(),
+                path: "bar",
                 value: Some(2),
                 childs: HashMap::new(),
                 wildcard: None,
@@ -397,7 +389,7 @@ mod tests {
         assert_eq!(
             tree.0,
             Some(Node {
-                path: "/foo".to_string(),
+                path: "/foo",
                 value: Some(1),
                 childs: childs,
                 wildcard: None,
@@ -412,13 +404,13 @@ mod tests {
         assert_eq!(
             node,
             Node {
-                path: "/foo/".to_string(),
+                path: "/foo/",
                 value: None,
                 childs: HashMap::new(),
                 wildcard: Some(Param {
-                    name: "bar".to_string(),
+                    name: "bar",
                     node: Box::new(Node {
-                        path: "/more".to_string(),
+                        path: "/more",
                         value: Some(1),
                         childs: HashMap::new(),
                         wildcard: None,

@@ -45,6 +45,7 @@ impl<'a, T> Tree<'a, T> {
 
 impl<'a, T> Node<'a, T> {
     fn new(path: &'a str, value: Option<T>) -> Self {
+        // extract params from path
         let mut value = value;
         let mut actual_path = None;
         let mut wildcard = None;
@@ -76,6 +77,7 @@ impl<'a, T> Node<'a, T> {
 
         // split self
         let split_at = {
+            // iterate path and compare it agains current tree
             let mut chars = self.path.chars();
             let mut is_new_path_segment = false;
             let mut i = 0;
@@ -83,6 +85,7 @@ impl<'a, T> Node<'a, T> {
                 match lhs {
                     '/' => is_new_path_segment = true,
                     ':' if is_new_path_segment => {
+                        // a param has been found -> continue in param node
                         let (_, right) = path.split_at(i);
                         if let Some(ref mut param) = self.wildcard {
                             param.add_path(right, value);
@@ -95,6 +98,7 @@ impl<'a, T> Node<'a, T> {
                     _ => {}
                 }
 
+                // compare position with current node's path
                 if let Some(rhs) = chars.next() {
                     if lhs != rhs {
                         break;
@@ -191,7 +195,7 @@ impl<'a, T> Param<'a, T> {
     }
 
     fn find(&self, path: &str, mut params: Params) -> Option<(&T, Params)> {
-        let (value, path) = split_at_next_path_segment(path);
+        let (value, path) = split_at_next_param_delimiter(path);
         params.insert(self.name.to_string(), value.to_string());
         self.node.find(path, params)
     }
@@ -206,14 +210,14 @@ fn extract_param_name(path: &str) -> (&str, &str) {
     let (colon, path) = path.split_at(1);
     assert_eq!(colon, ":");
 
-    split_at_next_path_segment(path)
+    split_at_next_param_delimiter(path)
 }
 
-fn split_at_next_path_segment(path: &str) -> (&str, &str) {
+fn split_at_next_param_delimiter(path: &str) -> (&str, &str) {
     let split_at = {
         let mut i = 0;
         for ch in path.chars() {
-            if ch == '/' {
+            if ch == '/' || ch == '.' {
                 break;
             }
             i += 1;
@@ -427,6 +431,15 @@ mod tests {
 
         let param = Param::new(":id", Some(1));
         assert_eq!(param.find_test("whatever"), Some(&1));
+    }
+
+    #[test]
+    fn param_special_character() {
+        let mut tree = Tree::new();
+        tree.add_path("/foo/:id.json", 1);
+        let mut params = HashMap::new();
+        params.insert("id".to_string(), "42".to_string());
+        assert_eq!(tree.find("/foo/42.json"), Some((&1, params)));
     }
 
     #[test]

@@ -11,17 +11,17 @@ pub use router::Params;
 
 pub type RouterFuture<E> = Box<Future<Item = Response, Error = E>>;
 
-pub trait Handler<E>: Send + Sync {
-    fn handle(&self, Request, Response, Context) -> RouterFuture<E>;
+pub trait Handler<S, E>: Send + Sync {
+    fn handle(&self, Request, Response, S) -> RouterFuture<E>;
 }
 
-impl<E, F, B> Handler<E> for F
+impl<S, E, F, B> Handler<S, E> for F
 where
     E: 'static,
-    F: Send + Sync + Fn(Request, Response, Context) -> B,
+    F: Send + Sync + Fn(Request, Response, S) -> B,
     B: IntoRouterFuture<E> + 'static,
 {
-    fn handle(&self, req: Request, res: Response, ctx: Context) -> RouterFuture<E> {
+    fn handle(&self, req: Request, res: Response, ctx: S) -> RouterFuture<E> {
         Box::new((self)(req, res, ctx).into_future())
     }
 }
@@ -41,20 +41,20 @@ where
     }
 }
 
-pub struct Router<'a, E: Into<HttpError>>(router::Router<'a, Box<Handler<E>>>);
+pub struct Router<'a, S, E: Into<HttpError>>(router::Router<'a, Box<Handler<S, E>>>);
 
 macro_rules! method {
     ( $name:ident, $method:expr ) => {
         pub fn $name<H>(&mut self, path: &'a str, handler: H)
     where
-        H: Handler<E> + 'static,
+        H: Handler<S, E> + 'static,
         {
             self.route($method, path, handler);
         }
     };
 }
 
-impl<'a, E> Router<'a, E>
+impl<'a, S, E> Router<'a, S, E>
 where
     E: Into<HttpError>,
 {
@@ -64,7 +64,7 @@ where
 
     pub fn route<H>(&mut self, method: Method, path: &'a str, handler: H)
     where
-        H: Handler<E> + 'static,
+        H: Handler<S, E> + 'static,
     {
         self.0.route(method, path, Box::new(handler));
     }
@@ -78,13 +78,29 @@ where
     method!(patch, Method::Patch);
 }
 
-impl<'a, E> Middleware for Router<'a, E>
+pub trait AsParams {
+    fn with_params(self, Params) -> Self;
+    fn params(&self) -> Option<&Params>;
+}
+
+impl AsParams for Context {
+    fn with_params(self, params: Params) -> Self {
+        ctx::with_value(self, params)
+    }
+
+    fn params(&self) -> Option<&Params> {
+        self.value_ref::<Params>()
+    }
+}
+
+impl<'a, S, E> Middleware<S> for Router<'a, S, E>
 where
+    S: AsParams,
     E: Into<HttpError> + 'static,
 {
-    fn handle(&self, req: Request, res: Response, ctx: Context, next: Next) -> WebFuture {
+    fn handle(&self, req: Request, res: Response, ctx: S, next: Next<S>) -> WebFuture {
         if let Some((mw, params)) = self.0.resolve(req.method(), req.uri().path()) {
-            let ctx = ctx::with_value(ctx, params);
+            let ctx = ctx.with_params(params);
             Box::new(mw.handle(req, res, ctx).map_err(|err| err.into()))
         } else {
             next(req, res, ctx)

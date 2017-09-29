@@ -5,7 +5,7 @@ extern crate web_router;
 
 use ctx::background;
 use web::*;
-use web_router::{Router, RouterFuture};
+use web_router::{Router, RouterFuture, AsParams};
 use hyper::server::Http;
 
 fn main() {
@@ -16,8 +16,10 @@ fn main() {
         res.set_body("foocar");
         Ok(res)
     });
-    router.get("/user/:id", |_, mut res: Response, _| {
-        res.set_body("/user/:id");
+    router.get("/user/:id", |_, mut res: Response, ctx: Context| {
+        let params = ctx.params().unwrap();
+        let id = params.get("id").unwrap();
+        res.set_body(format!("id = {}", id));
         Ok(res)
     });
     app.add(router);

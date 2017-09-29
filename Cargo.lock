@@ -53,7 +53,7 @@ dependencies = [
 [[package]]
 name = "ctx"
 version = "0.2.0"
-source = "git+https://github.com/rkusa/ctx.git#171d4c7f213b565d63773bb48584551c64300a7d"
+source = "git+https://github.com/rkusa/ctx.git#c4e888e4ce2569f62f92c29cf15308dd09b49c64"
 dependencies = [
  "futures 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-timer 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -362,7 +362,7 @@ dependencies = [
 [[package]]
 name = "web"
 version = "0.1.0"
-source = "git+https://github.com/rkusa/web-rs.git#40d18dd7f7f7ca9d9a0098e54aa1ca224a5b8525"
+source = "git+https://github.com/rkusa/web-rs.git#541eb575771006194e764c5a5fe359ca89bd92a8"
 dependencies = [
  "ctx 0.2.0 (git+https://github.com/rkusa/ctx.git)",
  "futures 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",

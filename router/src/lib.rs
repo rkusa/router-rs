@@ -1,11 +1,11 @@
-extern crate hyper;
+extern crate http;
 
+use http::Method;
 use std::collections::HashMap;
-use hyper::Method;
 
 mod tree;
-use tree::Tree;
 pub use tree::Params;
+use tree::Tree;
 
 pub struct Router<'a, T> {
     routes: HashMap<Method, Tree<'a, T>>,
@@ -26,8 +26,8 @@ macro_rules! method {
 impl<'a, T> Router<'a, T> {
     pub fn new() -> Self {
         let mut routes = HashMap::with_capacity(2);
-        routes.insert(Method::Get, Tree::new());
-        routes.insert(Method::Post, Tree::new());
+        routes.insert(Method::GET, Tree::new());
+        routes.insert(Method::POST, Tree::new());
         Router { routes: routes }
     }
 
@@ -40,18 +40,16 @@ impl<'a, T> Router<'a, T> {
         tree.add_path(path, handler);
     }
 
-    method!(options, Method::Options);
-    method!(get, Method::Get);
-    method!(post, Method::Post);
-    method!(put, Method::Put);
-    method!(delete, Method::Delete);
-    method!(head, Method::Head);
-    method!(patch, Method::Patch);
+    method!(options, Method::OPTIONS);
+    method!(get, Method::GET);
+    method!(post, Method::POST);
+    method!(put, Method::PUT);
+    method!(delete, Method::DELETE);
+    method!(head, Method::HEAD);
+    method!(patch, Method::PATCH);
 
     pub fn resolve(&self, method: &Method, path: &str) -> Option<(&T, Params)> {
         // let path = path.to_lowercase();
-        self.routes.get(method).and_then(
-            |tree| tree.find(path),
-        )
+        self.routes.get(method).and_then(|tree| tree.find(path))
     }
 }

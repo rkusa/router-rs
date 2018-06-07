@@ -128,10 +128,8 @@ impl<'a, T> Node<'a, T> {
             // add new node
             if path != "" {
                 let (_, right) = path.split_at(split_at);
-                self.childs.insert(
-                    right.chars().next().unwrap(),
-                    Node::new(right, value),
-                );
+                self.childs
+                    .insert(right.chars().next().unwrap(), Node::new(right, value));
             } else {
                 self.value = value;
             }
@@ -227,11 +225,10 @@ fn split_at_next_param_delimiter(path: &str) -> (&str, &str) {
     path.split_at(split_at)
 }
 
-
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
-    use tree::{Tree, Node, Param};
+    use tree::{Node, Param, Tree};
 
     #[test]
     fn root_branch() {

@@ -3,7 +3,7 @@ extern crate http;
 extern crate router;
 extern crate web;
 
-use futures::{Future, IntoFuture};
+use futures::Future;
 use http::Method;
 pub use router::Params;
 use web::{HttpError, IntoResponse, Middleware, Next, Request, Response, ResponseFuture};
@@ -12,21 +12,15 @@ pub trait Handler<S, E>: Send + Sync {
     fn handle(&self, Request, Response, S) -> ResponseFuture<E>;
 }
 
-impl<S, E1, E2, F, B, I> Handler<S, E2> for F
+impl<S, E, F, B> Handler<S, E> for F
 where
-    E1: Send + 'static,
-    E2: From<E1> + Send + 'static,
+    E: Send + 'static,
     F: Send + Sync + Fn(Request, Response, S) -> B,
-    B: IntoFuture<Item = I, Error = E1>,
-    I: IntoResponse<E2>,
-    <B as futures::IntoFuture>::Future: Send + 'static,
+    B: IntoResponse<E>,
 {
-    fn handle(&self, req: Request, res: Response, state: S) -> ResponseFuture<E2> {
-        let fut = (self)(req, res, state)
-            .into_future()
-            .from_err()
-            .and_then(|i| i.into_response());
-        ResponseFuture::new(fut)
+    fn handle(&self, req: Request, res: Response, state: S) -> ResponseFuture<E> {
+        let fut = (self)(req, res, state).into_response();
+        Box::new(fut)
     }
 }
 
@@ -81,7 +75,7 @@ where
         if let Some((mw, params)) = self.0.resolve(req.method(), req.uri().path()) {
             let state = state.with_params(params);
             let fut = mw.handle(req, res, state).map_err(|err| err.into());
-            ResponseFuture::new(fut)
+            Box::new(fut)
         } else {
             next(req, res, state)
         }
@@ -96,7 +90,7 @@ mod tests {
     use self::futures::{Future, Stream};
     use self::hyper::Body;
     use http::{self, StatusCode};
-    use web::{done, App, HttpError, Response};
+    use web::{App, HttpError, IntoResponse, Response};
     use {AsParams, Params, Router};
 
     struct State {
@@ -136,7 +130,7 @@ mod tests {
             .execute(req, Response::new(), State::new(), |_, _, _| {
                 let mut res = Response::new();
                 res.status(StatusCode::NOT_FOUND);
-                done(res)
+                Ok::<_, HttpError>(res).into_response()
             })
             .wait()
             .unwrap();
@@ -163,7 +157,7 @@ mod tests {
             .execute(req, Response::default(), State::new(), |_, _, _| {
                 let mut res = Response::new();
                 res.status(StatusCode::NOT_FOUND);
-                done(res)
+                Ok::<_, HttpError>(res).into_response()
             })
             .wait()
             .unwrap();

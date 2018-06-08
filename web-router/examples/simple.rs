@@ -4,7 +4,7 @@ extern crate hyper;
 extern crate web;
 extern crate web_router;
 
-use futures::{Future, IntoFuture};
+use futures::Future;
 use hyper::StatusCode;
 use web::*;
 use web_router::{AsParams, Params, Router};
@@ -37,9 +37,8 @@ fn main() {
     }));
 }
 
-fn foobar(_: Request, mut res: Response, _: State) -> ResponseFuture<Error> {
-    let res = res.body("foobar").into_response();
-    ResponseFuture::new(res.into_future())
+fn foobar(_: Request, mut res: Response, _: State) -> impl IntoResponse<Error> {
+    res.body("foobar")
 }
 
 impl State {

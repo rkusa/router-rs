@@ -24,13 +24,6 @@ macro_rules! method {
 }
 
 impl<'a, T> Router<'a, T> {
-    pub fn new() -> Self {
-        let mut routes = HashMap::with_capacity(2);
-        routes.insert(Method::GET, Tree::new());
-        routes.insert(Method::POST, Tree::new());
-        Router { routes: routes }
-    }
-
     pub fn route(&mut self, method: Method, path: &'a str, handler: T) {
         if !self.routes.contains_key(&method) {
             let tree = Tree::new();
@@ -51,5 +44,14 @@ impl<'a, T> Router<'a, T> {
     pub fn resolve(&self, method: &Method, path: &str) -> Option<(&T, Params)> {
         // let path = path.to_lowercase();
         self.routes.get(method).and_then(|tree| tree.find(path))
+    }
+}
+
+impl<'a, T> Default for Router<'a, T> {
+    fn default() -> Self {
+        let mut routes = HashMap::with_capacity(2);
+        routes.insert(Method::GET, Tree::new());
+        routes.insert(Method::POST, Tree::new());
+        Router { routes }
     }
 }

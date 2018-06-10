@@ -42,7 +42,7 @@ where
     E: Into<HttpError>,
 {
     pub fn new() -> Self {
-        Router(router::Router::new())
+        Router::default()
     }
 
     pub fn route<H>(&mut self, method: Method, path: &'a str, handler: H)
@@ -59,6 +59,15 @@ where
     method!(delete, Method::DELETE);
     method!(head, Method::HEAD);
     method!(patch, Method::PATCH);
+}
+
+impl<'a, S, E> Default for Router<'a, S, E>
+where
+    E: Into<HttpError>,
+{
+    fn default() -> Self {
+        Router(router::Router::default())
+    }
 }
 
 pub trait AsParams {

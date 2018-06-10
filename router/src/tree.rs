@@ -22,7 +22,7 @@ pub struct Param<'a, T> {
 
 impl<'a, T> Tree<'a, T> {
     pub fn new() -> Self {
-        return Tree(None);
+        Tree(None)
     }
 
     pub fn add_path(&mut self, path: &'a str, value: T) {
@@ -66,9 +66,9 @@ impl<'a, T> Node<'a, T> {
 
         Node {
             path: actual_path.unwrap_or(path),
-            value: value,
+            value,
             childs: HashMap::new(),
-            wildcard: wildcard,
+            wildcard,
         }
     }
 
@@ -178,7 +178,7 @@ impl<'a, T> Param<'a, T> {
     fn new(path: &'a str, value: Option<T>) -> Self {
         let (name, path) = extract_param_name(path);
         Param {
-            name: name,
+            name,
             node: Box::new(Node::new(path, value)),
         }
     }

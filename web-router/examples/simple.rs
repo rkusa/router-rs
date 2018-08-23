@@ -17,7 +17,7 @@ struct Error;
 
 fn main() {
     let mut app = App::new();
-    let mut router: Router<State, Error> = Router::new();
+    let mut router: Router<State> = Router::new();
     router.get("/foobar", foobar);
     router.get("/foocar", |_, mut res: Response, _| res.body("foocar"));
     router.get("/user/:id", |_, mut res: Response, state: State| {
@@ -37,7 +37,7 @@ fn main() {
     }));
 }
 
-fn foobar(_: Request, mut res: Response, _: State) -> impl IntoResponse<Error> {
+fn foobar(_: Request, mut res: Response, _: State) -> impl IntoResponse {
     res.body("foobar")
 }
 

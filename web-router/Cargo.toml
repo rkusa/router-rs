@@ -6,6 +6,6 @@ authors = ["Markus Ast <m@rkusa.st>"]
 [dependencies]
 ctx = { git = "https://github.com/rkusa/ctx.git" }
 hyper = "0.11"
-web = { git = "https://github.com/rkusa/web-rs.git" }
+web = { git = "https://github.com/rkusa/web-rs.git", rev = "e0db7a04d5cfd4283dbb1542f6294791cb679795" }
 router = { path = "../router" }
 futures = "0.1"

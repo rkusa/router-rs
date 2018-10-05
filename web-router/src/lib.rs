@@ -3,46 +3,51 @@ extern crate http;
 extern crate router;
 extern crate web;
 
+use futures::Future;
 use http::Method;
 pub use router::Params;
-use web::{IntoResponse, Middleware, Next, Request, Response, ResponseFuture};
+use web::{HttpError, IntoResponse, Middleware, Next, Request, Response, ResponseFuture};
 
-pub trait Handler<S>: Send + Sync {
-    fn handle(&self, Request, Response, S) -> ResponseFuture;
+pub trait Handler<S, E>: Send + Sync {
+    fn handle(&self, Request, Response, S) -> ResponseFuture<E>;
 }
 
-impl<S, F, B> Handler<S> for F
+impl<S, E, F, B> Handler<S, E> for F
 where
+    E: Send + 'static,
     F: Send + Sync + Fn(Request, Response, S) -> B,
-    B: IntoResponse,
+    B: IntoResponse<E>,
 {
-    fn handle(&self, req: Request, res: Response, state: S) -> ResponseFuture {
+    fn handle(&self, req: Request, res: Response, state: S) -> ResponseFuture<E> {
         let fut = (self)(req, res, state).into_response();
         Box::new(fut)
     }
 }
 
-pub struct Router<'a, S>(router::Router<'a, Box<Handler<S>>>);
+pub struct Router<'a, S, E: Into<HttpError>>(router::Router<'a, Box<Handler<S, E>>>);
 
 macro_rules! method {
     ( $name:ident, $method:expr ) => {
         pub fn $name<H>(&mut self, path: &'a str, handler: H)
     where
-        H: Handler<S> + 'static,
+        H: Handler<S, E> + 'static,
         {
             self.route($method, path, handler);
         }
     };
 }
 
-impl<'a, S> Router<'a, S> {
+impl<'a, S, E> Router<'a, S, E>
+where
+    E: Into<HttpError>,
+{
     pub fn new() -> Self {
         Router::default()
     }
 
     pub fn route<H>(&mut self, method: Method, path: &'a str, handler: H)
     where
-        H: Handler<S> + 'static,
+        H: Handler<S, E> + 'static,
     {
         self.0.route(method, path, Box::new(handler));
     }
@@ -56,7 +61,10 @@ impl<'a, S> Router<'a, S> {
     method!(patch, Method::PATCH);
 }
 
-impl<'a, S> Default for Router<'a, S> {
+impl<'a, S, E> Default for Router<'a, S, E>
+where
+    E: Into<HttpError>,
+{
     fn default() -> Self {
         Router(router::Router::default())
     }
@@ -67,14 +75,15 @@ pub trait AsParams {
     fn params(&self) -> Option<&Params>;
 }
 
-impl<'a, S> Middleware<S> for Router<'a, S>
+impl<'a, S, E> Middleware<S> for Router<'a, S, E>
 where
     S: AsParams,
+    E: Into<HttpError> + 'static,
 {
     fn handle(&self, req: Request, res: Response, state: S, next: Next<S>) -> ResponseFuture {
         if let Some((mw, params)) = self.0.resolve(req.method(), req.uri().path()) {
             let state = state.with_params(params);
-            let fut = mw.handle(req, res, state);
+            let fut = mw.handle(req, res, state).map_err(|err| err.into());
             Box::new(fut)
         } else {
             next(req, res, state)
@@ -116,7 +125,7 @@ mod tests {
 
     #[test]
     fn middleware() {
-        let mut router: Router<State> = Router::new();
+        let mut router: Router<State, HttpError> = Router::new();
         router.get("/foo", |_, mut res: Response, _| res.body("Hello World!"));
 
         let mut app = App::new();
@@ -140,7 +149,7 @@ mod tests {
 
     #[test]
     fn param_case_sensitivity() {
-        let mut router: Router<State> = Router::new();
+        let mut router: Router<State, HttpError> = Router::new();
         router.get("/test/:name", |_, mut res: Response, state: State| {
             let params = state.params().unwrap();
             res.body(params.get("name").unwrap().clone())
